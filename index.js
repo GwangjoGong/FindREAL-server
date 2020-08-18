@@ -22,6 +22,7 @@ MongoClient.connect(connectionString, { useUnifiedTopology: true })
 
     const userCollection = db.collection("users");
     const requestsCollection = db.collection("requests");
+    const newsCollection = db.collection("news");
 
     app.use(logger("dev"));
     app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
@@ -169,6 +170,73 @@ MongoClient.connect(connectionString, { useUnifiedTopology: true })
             progress,
           });
         });
+    });
+
+    app.post("/crawl_news", async (req, res) => {
+      const now = new Date();
+      const nowString = now.toISOString().substring(0, 10).split("-").join("");
+      now.setFullYear(now.getFullYear() - 2);
+      const startString = now
+        .toISOString()
+        .substring(0, 10)
+        .split("-")
+        .join("");
+      const url = `https://api.nytimes.com/svc/search/v2/articlesearch.json?begin_date=${startString}&end_date=${nowString}&q=deepfake&api-key=8rbAjzkDbCUjngtsT76jQi6kNiW0yNSR`;
+
+      await newsCollection.deleteMany({});
+
+      const news = [];
+      let count = 0;
+
+      try {
+        const response = await axios.get(url);
+        const docs = response.data.response.docs;
+        for (const doc of docs) {
+          try {
+            const urlArticle = doc.web_url;
+            const title = doc.headline.main;
+
+            let thumbnailBase = "https://www.nytimes.com/";
+
+            const multimedia = doc.multimedia;
+            thumbnailBase += multimedia[0].url;
+
+            news.push({
+              urlArticle,
+              title,
+              thumbnail: thumbnailBase,
+            });
+          } catch (err) {
+            continue;
+          } finally {
+            count += 1;
+          }
+
+          if (count == 3) {
+            break;
+          }
+        }
+
+        await newsCollection.insertMany(news);
+        return res.json({
+          success: true,
+        });
+      } catch (err) {
+        return res.json({
+          success: false,
+          message: err.message,
+        });
+      }
+    });
+
+    app.post("/news", (req, res) => {
+      newsCollection.find({}).toArray((err, result) => {
+        if (err) return res.json({ success: false, message: err.message });
+
+        return res.json({
+          news: result,
+        });
+      });
     });
 
     app.post("/init_requests", (req, res) => {
