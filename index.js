@@ -14,6 +14,29 @@ const MongoClient = require("mongodb").MongoClient;
 
 const connectionString = process.env.DB || "mongodb://127.0.0.1:27017/";
 
+const analyzeTime = 10;
+
+function getBase64Image(imgUrl) {
+  return new Promise(function (resolve, reject) {
+    var img = new Image();
+    img.src = imgUrl;
+    img.setAttribute("crossOrigin", "anonymous");
+
+    img.onload = function () {
+      var canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      var ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      var dataURL = canvas.toDataURL("image/png");
+      resolve(dataURL.replace(/^data:image\/(png|jpg);base64,/, ""));
+    };
+    img.onerror = function () {
+      reject("The image could not be loaded.");
+    };
+  });
+}
+
 MongoClient.connect(connectionString, { useUnifiedTopology: true })
   .then((client) => {
     console.log("Connected to database!");
@@ -113,7 +136,7 @@ MongoClient.connect(connectionString, { useUnifiedTopology: true })
 
         var now = new Date();
         var created = now.toISOString().substring(0, 16).replace("T", " ");
-        now.setSeconds(now.getSeconds() + 30);
+        now.setSeconds(now.getSeconds() + analyzeTime);
 
         await requestsCollection.insertOne({
           user: email,
