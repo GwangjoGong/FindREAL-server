@@ -88,7 +88,7 @@ MongoClient.connect(connectionString, { useUnifiedTopology: true })
       var base64 = req.body.image;
       var email = req.body.email;
 
-      const url = process.env.MODEL_API_URL || "http://localhost:5000/";
+      const url = process.env.MODEL_API_URL || "http://localhost:5000/predict";
 
       try {
         const data = new FormData();
